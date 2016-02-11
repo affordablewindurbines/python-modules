@@ -1,0 +1,13 @@
+DateTime Date		"Date [%1$tA, %1$td.%1$tm.%1$tY]" 	<calendar>		{ntp="Europe/Berlin:de_DE"}
+
+Color  led0   (Colorize)  {tinkerforge="uid=oYm, leds=0|9|50-70, colorMapping=bgr"}
+Color  led1   (Colorize)  {tinkerforge="uid=oYm, leds=0-49, colorMapping=bgr"}
+Color  led2   (Colorize)  {tinkerforge="uid=oYm, leds=50-99, colorMapping=bgr"}
+Color  led3   (Colorize)  {tinkerforge="uid=oYm, leds=100-149, colorMapping=bgr"}
+Color  led4   (Colorize)  {tinkerforge="uid=oYm, leds=150-199, colorMapping=bgr"}
+Color  RGB    (Colorize)  {tinkerforge="uid=oYm, leds=0-199, colorMapping=bgr"}
+Color  All    (Colorize)  {tinkerforge="uid=oYm, leds=0-199, colorMapping=bgr"}
+
+Switch LEDRED		"LEDRED"
+Switch LEDGREEN		"LEDGREEN"
+Switch LEDBLUE		"LEDBLUE"
