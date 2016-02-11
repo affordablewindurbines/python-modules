@@ -1,0 +1,59 @@
+import org.openhab.core.library.types.*
+
+var HSBType hsbValue
+var String  redValue
+var String  greenValue
+var String  blueValue
+
+
+rule "LED1"
+when
+        Item LEDRED received command
+then
+        if(receivedCommand==ON) {	
+            redValue   = "0"
+            greenValue = "100"
+            blueValue  = "100"
+            sendCommand(RGB, redValue +"," +greenValue +"," +blueValue)
+        } else if(receivedCommand==OFF) {
+            redValue   = "0"
+            greenValue = "0"
+            blueValue  = "0"
+            sendCommand(RGB, redValue +"," +greenValue +"," +blueValue)
+        }
+end
+
+rule "LED2"
+when
+        Item LEDGREEN received command
+then
+        if(receivedCommand==ON) {	
+            redValue   = "120"
+            greenValue = "100"
+            blueValue  = "100"
+            sendCommand(RGB, redValue +"," +greenValue +"," +blueValue)
+        } else if(receivedCommand==OFF) {
+            redValue   = "0"
+            greenValue = "0"
+            blueValue  = "0"
+            sendCommand(RGB, redValue +"," +greenValue +"," +blueValue)
+        }
+end
+
+
+rule "LED3"
+when
+        Item LEDBLUE received command
+then
+        if(receivedCommand==ON) {	
+            redValue   = "240"
+            greenValue = "100"
+            blueValue  = "100"
+            sendCommand(RGB, redValue +"," +greenValue +"," +blueValue)
+        } else if(receivedCommand==OFF) {
+            redValue   = "0"
+            greenValue = "0"
+            blueValue  = "0"
+            sendCommand(RGB, redValue +"," +greenValue +"," +blueValue)
+        }
+end
