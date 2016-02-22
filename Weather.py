@@ -5,13 +5,17 @@ import struct
 import urllib
 import feedparser
 import requests
+import logging
 import bs4
 from client.app_utils import getTimezone
 from semantic.dates import DateService
 
-WORDS = ["WEATHER", "TODAY", "TOMORROW"]
+WORDS = ["WEATHER", "CURRENT", "TODAY", "TONIGHT", "TOMORROW", "FORECAST"]
 
 
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 def replaceAcronyms(text):
     """
     Replaces some commonly-used acronyms for an improved verbal weather report.
@@ -38,9 +42,13 @@ def replaceAcronyms(text):
     return text
 
 
-def get_locations():
-    r = requests.get('http://www.wunderground.com/about/faq/international_cities.asp/')
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
+def get_locations():
+    r = requests.get('http://www.wunderground.com/about/faq/' +
+                     'international_cities.asp')
     soup = bs4.BeautifulSoup(r.text)
     data = soup.find(id="inner-content").find('pre').string
     # Data Stucture:
@@ -72,6 +80,9 @@ def get_locations():
         yield info
 
 
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 def get_forecast_by_name(location_name):
     entries = feedparser.parse("http://rss.wunderground.com/auto/rss_full/%s"
                                % urllib.quote(location_name))['entries']
@@ -85,12 +96,18 @@ def get_forecast_by_name(location_name):
                 return get_forecast_by_wmo_id(location['wmo_id'])
 
 
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 def get_forecast_by_wmo_id(wmo_id):
     return feedparser.parse("http://rss.wunderground.com/auto/" +
                             "rss_full/global/stations/%s.xml"
                             % wmo_id)['entries']
 
 
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 def handle(text, mic, profile):
     """
     Responds to user-input, typically speech text, with a summary of
@@ -103,63 +120,72 @@ def handle(text, mic, profile):
         profile -- contains information related to the user (e.g., phone
                    number)
     """
+    logger = logging.getLogger(__name__)
+    logger.debug(text)
+    logger.debug("location=" + str(profile['location']))
     forecast = None
-    if 'wmo_id' in profile:
-        forecast = get_forecast_by_wmo_id(str(profile['wmo_id']))
-    elif 'location' in profile:
+    if 'location' in profile:
         forecast = get_forecast_by_name(str(profile['location']))
 
     if not forecast:
-        mic.say("I'm sorry, I can't seem to access that information. Please " +
-                "make sure that you've set your location on the dashboard.")
+        mic.say("I'm sorry, I can't seem to access weather information right now.")
+        # mic.say("Please make sure that you've set your location on the dashboard.")
         return
 
+    # tz = getTimezone(profile)
+    # logger.debug(tz)
+
+    date_keyword = 'all'
+    for word in text.split():
+        logger.debug('word='+word)
+        if word != "WEATHER" and word in WORDS:
+            date_keyword = word.lower()
+
+    matchThese = []
     tz = getTimezone(profile)
-
     service = DateService(tz=tz)
-    date = service.extractDay(text)
-    if not date:
-        date = datetime.datetime.now(tz=tz)
-    weekday = service.__daysOfWeek__[date.weekday()]
+    today_wkday = datetime.datetime.now(tz=tz).weekday()
+    today = service.__daysOfWeek__[today_wkday]
+    if date_keyword == 'tomorrow':
+        tomorrow_wkday = (today_wkday + 1) % 7
+        date_keyword  = service.__daysOfWeek__[tomorrow_wkday]
+    
+    logger.debug("date_keyword=" + date_keyword)
 
-    if date.weekday() == datetime.datetime.now(tz=tz).weekday():
-        date_keyword = "Today"
-    elif date.weekday() == (
-            datetime.datetime.now(tz=tz).weekday() + 1) % 7:
-        date_keyword = "Tomorrow"
-    else:
-        date_keyword = "On " + weekday
+    if date_keyword != '':
+        matchThese.append(date_keyword)
 
-    output = None
+    if date_keyword == 'today':
+        matchThese.append('current')
+        matchThese.append('rest')
+        matchThese.append('this')
+        # matchThese.append('tonight')
+    
+    for entry in matchThese:
+        logger.debug('match=' + entry)
 
     for entry in forecast:
-        try:
-            date_desc = entry['title'].split()[0].strip().lower()
-            if date_desc == 'forecast':
-                # For global forecasts
-                date_desc = entry['title'].split()[2].strip().lower()
-                weather_desc = entry['summary']
-            elif date_desc == 'current':
-                # For first item of global forecasts
-                continue
+        date_desc = entry['title'].split()[0].strip().lower()
+        logger.debug('[' + date_desc + ']: title=' + str(entry['title']))
+
+    # logger.debug(forecast)
+    for entry in forecast:
+        sayThis = ''
+        date_desc = entry['title'].split()[0].strip().lower()
+        if (date_desc in matchThese) or (date_keyword == 'all'):
+            if date_desc == 'current':
+                sayThis = str(entry['title'])
             else:
-                # US forecasts
-                weather_desc = entry['summary'].split('-')[1]
+                sayThis = str(entry['summary'])
 
-            if weekday == date_desc:
-                output = date_keyword + \
-                    ", the weather will be " + weather_desc + "."
-                break
-        except:
-            continue
-
-    if output:
-        output = replaceAcronyms(output)
-        mic.say(output)
-    else:
-        mic.say("I'm sorry. I can't seem to get weather underground infromation there website is shit try asking for, weather tommorrow instead.")
+        if sayThis != '':
+            mic.say(sayThis)
+    return
 
 
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 def isValid(text):
     """
         Returns True if the text is related to the weather.
@@ -167,5 +193,11 @@ def isValid(text):
         Arguments:
         text -- user-input, typically transcribed speech
     """
-    return bool(re.search(r'\b(weathers?|temperature|forecast|outside|hot|' +
-                          r'cold|jacket|coat|rain)\b', text, re.IGNORECASE))
+    logger = logging.getLogger(__name__)
+    logger.debug('text=' + text)
+    for word in text.split():
+        word = word.upper()
+        # logger.debug(word)
+        if word in WORDS:
+            return True
+    return False
